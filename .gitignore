@@ -42,3 +42,5 @@ yarn-error.log*
 # temp directory
 .temp
 .tmp
+
+/generated/prisma

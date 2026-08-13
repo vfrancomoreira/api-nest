@@ -1,39 +1,38 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { randomUUID } from 'crypto';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '../../generated/prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
-import { User } from './user.entity';
+import { UserModel as User } from '../../generated/prisma/models/User';
 
 @Injectable()
 export class UsersService {
-  private users: User[] = [];
+  constructor(private readonly prisma: PrismaService) {}
 
-  create(createUserDto: CreateUserDto): User {
-    const user: User = {
-      id: randomUUID(),
-      nome: createUserDto.nome,
-      email: createUserDto.email,
-    };
-    this.users.push(user);
-    return user;
+  async create(createUserDto: CreateUserDto): Promise<User> {
+    try {
+      return await this.prisma.user.create({ data: createUserDto });
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        throw new ConflictException(`Já existe um usuário com o e-mail ${createUserDto.email}`);
+      }
+      throw error;
+    }
   }
 
-  findAll(): User[] {
-    return this.users;
+  findAll(): Promise<User[]> {
+    return this.prisma.user.findMany();
   }
 
-  findOne(id: string): User {
-    const user = this.users.find((u) => u.id === id);
+  async findOne(id: string): Promise<User> {
+    const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) {
       throw new NotFoundException(`Usuário com id ${id} não encontrado`);
     }
     return user;
   }
 
-  remove(id: string): void {
-    const index = this.users.findIndex((u) => u.id === id);
-    if (index === -1) {
-      throw new NotFoundException(`Usuário com id ${id} não encontrado`);
-    }
-    this.users.splice(index, 1);
+  async remove(id: string): Promise<void> {
+    await this.findOne(id);
+    await this.prisma.user.delete({ where: { id } });
   }
 }
