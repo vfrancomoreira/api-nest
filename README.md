@@ -2,6 +2,8 @@
 
 > Trabalho acadêmico (MBA): API REST com NestJS para cadastro de usuários (nome e e-mail), persistida em MySQL via Prisma ORM, com um frontend estático simples para consumo didático.
 
+**Alunos:** Limber Jhonathan e Vinicius Franco
+
 ---
 
 ![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=flat-square&logo=node.js&logoColor=white)
