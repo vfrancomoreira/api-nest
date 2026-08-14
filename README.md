@@ -1,61 +1,164 @@
 # API de Cadastro de Usuários — NestJS
 
-Trabalho acadêmico (MBA).
+> Trabalho acadêmico (MBA): API REST com NestJS para cadastro de usuários (nome e e-mail), persistida em MySQL via Prisma ORM, com um frontend estático simples para consumo didático.
 
-**Alunos:** Limber Jhonathan e Vinicius Franco
+---
 
-## Descrição
+![Node.js](https://img.shields.io/badge/Node.js-18+-339933?style=flat-square&logo=node.js&logoColor=white)
+![NestJS](https://img.shields.io/badge/NestJS-11-E0234E?style=flat-square&logo=nestjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?style=flat-square&logo=prisma&logoColor=white)
+![MySQL](https://img.shields.io/badge/MySQL-8-4479A1?style=flat-square&logo=mysql&logoColor=white)
+![Status](https://img.shields.io/badge/Status-Acadêmico-blue?style=flat-square)
 
-API REST feita com Node.js + NestJS que permite:
+---
 
-- Cadastrar um usuário (nome e e-mail)
-- Listar todos os usuários
-- Consultar um usuário específico pelo id
-- Excluir um usuário
+## Sumário
 
-Os dados são persistidos em um banco **MySQL**, acessado através do **Prisma ORM**. A versão inicial deste trabalho usava apenas um array em memória (sem banco de dados); a camada de persistência com Prisma foi adicionada depois, como exercício extra para aprender a integração entre NestJS e um ORM.
+- [Visão Geral](#visão-geral)
+- [Objetivo do Trabalho](#objetivo-do-trabalho)
+- [Arquitetura](#arquitetura)
+  - [Diagrama de Componentes](#diagrama-de-componentes)
+- [Estrutura de Pastas](#estrutura-de-pastas)
+- [Pré-requisitos](#pré-requisitos)
+- [Instalação](#instalação)
+- [Configuração](#configuração)
+  - [Variáveis de Ambiente (.env)](#variáveis-de-ambiente-env)
+- [Como Executar](#como-executar)
+  - [Rodando a API](#rodando-a-api)
+  - [Rodando o Frontend](#rodando-o-frontend)
+- [Endpoints da API](#endpoints-da-api)
+- [Tratamento de Erros](#tratamento-de-erros)
+- [Prisma — Comandos Úteis](#prisma--comandos-úteis)
+- [Segurança](#segurança)
+- [Padrões e Convenções](#padrões-e-convenções)
+- [Troubleshooting](#troubleshooting)
+- [Licença](#licença)
 
-Também está incluído um **frontend bem simples**, feito em HTML, CSS e JavaScript puro (sem framework), apenas para consumir a API visualmente e demonstrar o funcionamento do CRUD.
+---
 
-## Tecnologias
+## Visão Geral
 
-- Node.js
-- NestJS
-- TypeScript
-- Prisma ORM + MySQL
-- class-validator / class-transformer (validação dos dados de entrada)
-- Frontend: HTML + CSS + JavaScript puro (fetch API)
-
-## Estrutura do projeto
+Esta API expõe um CRUD simples de usuários (`nome` e `email`), construído com **NestJS** e persistido em **MySQL** através do **Prisma ORM**. O objetivo é didático: praticar a estrutura de um projeto NestJS (módulos, controllers, services, DTOs) e a integração com um ORM, sem a complexidade de autenticação, múltiplas entidades ou integrações externas.
 
 ```
-prisma/
-  schema.prisma           # definição do model User e do datasource MySQL
-  migrations/              # histórico de migrations do banco
-src/
-  prisma/
-    prisma.service.ts      # cliente Prisma (conexão com o MySQL via driver adapter)
-    prisma.module.ts       # módulo global, injeta o PrismaService em toda a aplicação
-  users/
-    dto/
-      create-user.dto.ts   # validação dos dados de entrada
-    users.controller.ts    # rotas HTTP
-    users.service.ts       # regra de negócio + acesso ao banco via Prisma
-    users.module.ts
-  app.module.ts
-  main.ts                  # bootstrap, CORS e validação global
-frontend/
-  index.html
-  style.css
-  script.js
+Frontend (HTML/CSS/JS) → UsersController → UsersService → PrismaService → MySQL
 ```
+
+Um frontend estático (sem framework) está incluído apenas para exercitar o consumo da API via `fetch`, com os conceitos básicos de formulário, listagem, busca e exclusão.
+
+---
+
+## Objetivo do Trabalho
+
+| Requisito do enunciado | Como foi atendido |
+|---|---|
+| Armazenar usuários (nome e e-mail) | `POST /users` — validado com `class-validator` |
+| Consultar todos os usuários | `GET /users` |
+| Ler apenas um usuário | `GET /users/:id` |
+| Excluir um usuário | `DELETE /users/:id` |
+| Persistência | Inicialmente em memória; evoluído para MySQL via Prisma ORM como exercício extra |
+| Frontend simples | HTML + CSS + JavaScript puro, sem framework, em `frontend/` |
+
+---
+
+## Arquitetura
+
+O projeto segue a organização padrão do NestJS por **módulos de feature**, com uma camada de infraestrutura (`PrismaModule`) compartilhada globalmente.
+
+| Camada | Localização | Responsabilidade |
+|---|---|---|
+| **Entry point** | `src/main.ts` | Bootstrap da aplicação, CORS, validação global (`ValidationPipe`) |
+| **Módulo raiz** | `src/app.module.ts` | Importa `PrismaModule` e `UsersModule` |
+| **Infraestrutura** | `src/prisma/` | `PrismaService` (conexão com o MySQL) e `PrismaModule` (`@Global`, injetável em qualquer módulo) |
+| **Feature — Users** | `src/users/` | `UsersController` (rotas HTTP), `UsersService` (regra de negócio + acesso ao banco), DTO de validação |
+| **Persistência** | `prisma/schema.prisma` | Definição do model `User` e das migrations |
+| **Frontend** | `frontend/` | Página estática que consome a API via `fetch` |
+
+### Diagrama de Componentes
+
+```mermaid
+flowchart LR
+    subgraph Frontend
+        FE[index.html + script.js]
+    end
+
+    subgraph NestJS
+        CTRL[UsersController\nsrc/users/users.controller.ts]
+        SVC[UsersService\nsrc/users/users.service.ts]
+        DTO[CreateUserDto\nvalidação]
+        PSVC[PrismaService\nsrc/prisma/prisma.service.ts]
+    end
+
+    subgraph Banco
+        DB[(MySQL\ntabela users)]
+    end
+
+    FE -->|fetch /users| CTRL
+    CTRL --> DTO
+    CTRL --> SVC
+    SVC --> PSVC
+    PSVC -->|Prisma Client| DB
+```
+
+---
+
+## Estrutura de Pastas
+
+```
+api-nest/
+│
+├── prisma/
+│   ├── schema.prisma              # Model User + datasource MySQL
+│   └── migrations/                # Histórico de migrations aplicadas
+│
+├── src/
+│   ├── main.ts                    # Bootstrap, CORS, ValidationPipe
+│   ├── app.module.ts              # Módulo raiz (importa Prisma + Users)
+│   ├── prisma/
+│   │   ├── prisma.service.ts      # Conexão com o MySQL (driver adapter)
+│   │   └── prisma.module.ts       # Módulo global do Prisma
+│   └── users/
+│       ├── dto/
+│       │   └── create-user.dto.ts # Validação (nome, email)
+│       ├── users.controller.ts    # Rotas: POST, GET, GET /:id, DELETE /:id
+│       ├── users.service.ts       # CRUD via Prisma Client
+│       └── users.module.ts
+│
+├── frontend/                      # Frontend estático (sem framework)
+│   ├── index.html
+│   ├── style.css
+│   └── script.js
+│
+├── test/                          # Testes e2e
+├── generated/prisma/              # Prisma Client gerado (gitignored)
+├── .env                           # Credenciais do banco (gitignored — ver .env.example)
+├── .env.example
+└── README.md
+```
+
+---
 
 ## Pré-requisitos
 
-- Node.js
-- Um banco MySQL acessível (local ou via Docker)
+| Requisito | Notas |
+|---|---|
+| Node.js | 18+ |
+| MySQL | Local ou via Docker |
+| Docker | Opcional, mas recomendado para subir o MySQL rapidamente |
 
-### Subindo um MySQL local com Docker (mais simples)
+---
+
+## Instalação
+
+### 1. Clonar o repositório
+
+```bash
+git clone https://github.com/vfrancomoreira/api-nest.git
+cd api-nest
+```
+
+### 2. Subir um MySQL local (via Docker)
 
 ```bash
 docker run -d --name api-nest-mysql \
@@ -65,26 +168,45 @@ docker run -d --name api-nest-mysql \
   mysql:8
 ```
 
-## Configuração
+### 3. Instalar as dependências
 
-1. Copie `.env.example` para `.env` e ajuste a `DATABASE_URL` se necessário:
+```bash
+npm install
+```
+
+### 4. Configurar as variáveis de ambiente
 
 ```bash
 cp .env.example .env
 ```
 
-```
-DATABASE_URL="mysql://root:rootpass@localhost:3306/api_nest"
-```
-
-2. Instale as dependências e aplique as migrations (cria a tabela `users` no banco):
+### 5. Aplicar as migrations (cria a tabela `users`)
 
 ```bash
-npm install
 npx prisma migrate dev
 ```
 
-## Como rodar a API
+---
+
+## Configuração
+
+### Variáveis de Ambiente (.env)
+
+O `.env` **nunca é commitado** — está no `.gitignore`. Use `.env.example` como referência.
+
+```dotenv
+DATABASE_URL="mysql://root:rootpass@localhost:3306/api_nest"
+```
+
+| Variável | Obrigatória | Descrição |
+|---|---|---|
+| `DATABASE_URL` | ✅ | String de conexão do MySQL no formato `mysql://usuario:senha@host:porta/banco` |
+
+---
+
+## Como Executar
+
+### Rodando a API
 
 ```bash
 npm run start
@@ -92,14 +214,26 @@ npm run start
 
 A API sobe em `http://localhost:3000`.
 
-## Endpoints
+### Rodando o Frontend
 
-| Método | Rota          | Descrição                          |
-|--------|---------------|-------------------------------------|
-| POST   | `/users`      | Cria um usuário (`nome`, `email`)   |
-| GET    | `/users`      | Lista todos os usuários             |
-| GET    | `/users/:id`  | Retorna um usuário específico       |
-| DELETE | `/users/:id`  | Remove um usuário                   |
+O frontend é estático (não precisa de build). Com a API rodando, abra `frontend/index.html` diretamente no navegador, ou sirva a pasta com:
+
+```bash
+npx serve frontend
+```
+
+O frontend permite cadastrar usuários, listar todos, consultar um específico e excluir — tudo via `fetch` contra a API.
+
+---
+
+## Endpoints da API
+
+| Método | Rota | Descrição |
+|---|---|---|
+| `POST` | `/users` | Cria um usuário (`nome`, `email`) |
+| `GET` | `/users` | Lista todos os usuários |
+| `GET` | `/users/:id` | Retorna um usuário específico |
+| `DELETE` | `/users/:id` | Remove um usuário |
 
 ### Exemplo de criação (POST /users)
 
@@ -126,20 +260,24 @@ curl http://localhost:3000/users/{id}
 curl -X DELETE http://localhost:3000/users/{id}
 ```
 
-## Como rodar o frontend
+---
 
-O frontend é estático (não precisa de build). Com a API rodando em `http://localhost:3000`, basta abrir o arquivo `frontend/index.html` diretamente no navegador, ou servir a pasta com qualquer servidor estático, por exemplo:
+## Tratamento de Erros
+
+| Situação | Resposta |
+|---|---|
+| Corpo inválido (`nome` vazio ou `email` mal formatado) | `400 Bad Request` |
+| `id` não encontrado (`GET` ou `DELETE`) | `404 Not Found` |
+| E-mail já cadastrado (constraint única no banco) | `409 Conflict` |
+
+O `UsersService` captura a violação de unicidade do Prisma (`PrismaClientKnownRequestError`, código `P2002`) e converte para `ConflictException`, evitando vazar erro interno do banco (`500`) para o cliente.
+
+---
+
+## Prisma — Comandos Úteis
 
 ```bash
-npx serve frontend
-```
-
-O frontend permite cadastrar usuários, listar todos, ver um usuário específico e excluir — tudo consumindo a API via `fetch`.
-
-## Prisma — comandos úteis
-
-```bash
-# Aplicar/criar uma nova migration a partir de mudanças no schema.prisma
+# Criar/aplicar uma nova migration a partir de mudanças no schema.prisma
 npx prisma migrate dev
 
 # Gerar novamente o Prisma Client (após alterar o schema)
@@ -148,3 +286,53 @@ npx prisma generate
 # Abrir o Prisma Studio (interface visual para ver/editar os dados)
 npx prisma studio
 ```
+
+---
+
+## Segurança
+
+| Prática | Implementação |
+|---|---|
+| Credenciais fora do código | `DATABASE_URL` vem do `.env`, nunca hardcoded |
+| `.env` fora do controle de versão | Presente no `.gitignore`; `.env.example` documenta o formato esperado |
+| Validação de entrada | `class-validator` valida `nome` e `email` antes de qualquer persistência |
+| E-mail único | Constraint `@unique` no banco impede duplicidade, mesmo sob concorrência |
+| CORS habilitado | Necessário para o frontend estático consumir a API a partir de outra origem |
+
+---
+
+## Padrões e Convenções
+
+- Organização por **módulo de feature** (`UsersModule`), padrão recomendado pelo NestJS.
+- `PrismaModule` é `@Global()` — evita reimportar `PrismaService` em cada módulo que precisar do banco.
+- DTOs com `class-validator` para toda entrada da API (`whitelist: true` remove campos não esperados).
+- Tipos de retorno usam o tipo `UserModel` gerado automaticamente pelo Prisma Client — sem entidade duplicada à mão.
+- Regra de negócio (inclusive tratamento de erro do banco) vive no `UsersService`; o `UsersController` só expõe as rotas HTTP.
+
+---
+
+## Troubleshooting
+
+### `PrismaClientInitializationError: ... driver adapter is required`
+
+A `DATABASE_URL` não foi carregada ou o driver adapter do MySQL não está configurado. Confirme que o `.env` existe (`cp .env.example .env`) e que `@prisma/adapter-mariadb` está instalado.
+
+### Erro de conexão com o MySQL
+
+Confirme que o container Docker está no ar:
+
+```bash
+docker ps --filter name=api-nest-mysql
+```
+
+Se não estiver, suba novamente com o comando da seção [Instalação](#instalação).
+
+### Mudanças no `schema.prisma` não refletem no código
+
+Rode `npx prisma generate` para regenerar o Prisma Client, e reinicie a API.
+
+---
+
+## Licença
+
+Projeto acadêmico, sem fins comerciais — desenvolvido para fins de aprendizado no MBA.
