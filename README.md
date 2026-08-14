@@ -82,25 +82,25 @@ O projeto segue a organização padrão do NestJS por **módulos de feature**, c
 ```mermaid
 flowchart LR
     subgraph Frontend
-        FE[index.html + script.js]
+        FE["index.html + script.js"]
     end
 
     subgraph NestJS
-        CTRL[UsersController\nsrc/users/users.controller.ts]
-        SVC[UsersService\nsrc/users/users.service.ts]
-        DTO[CreateUserDto\nvalidação]
-        PSVC[PrismaService\nsrc/prisma/prisma.service.ts]
+        CTRL["UsersController<br/>src/users/users.controller.ts"]
+        SVC["UsersService<br/>src/users/users.service.ts"]
+        DTO["CreateUserDto<br/>validação"]
+        PSVC["PrismaService<br/>src/prisma/prisma.service.ts"]
     end
 
     subgraph Banco
-        DB[(MySQL\ntabela users)]
+        DB[("MySQL<br/>tabela users")]
     end
 
-    FE -->|fetch /users| CTRL
+    FE -->|"fetch /users"| CTRL
     CTRL --> DTO
     CTRL --> SVC
     SVC --> PSVC
-    PSVC -->|Prisma Client| DB
+    PSVC -->|"Prisma Client"| DB
 ```
 
 ---
